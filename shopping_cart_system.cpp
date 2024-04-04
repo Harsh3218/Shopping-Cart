@@ -51,6 +51,10 @@ class ShoppingCart {
         const vector<Item>& getItems() const {
             return items;
         }
+
+        bool isEmpty() const {
+            return items.empty();
+        }
 };
 
 class DatabaseHelper {
@@ -114,6 +118,86 @@ class DatabaseHelper {
         }
 
 };
+
+class ShoppingCartDB {
+    private:
+        DatabaseHelper dbhelper;
+    public:
+        void addToCart(ShoppingCart& cart,const Item& item) {
+            cart.addItem(item);
+            dbhelper.saveCart(cart);
+        }
+
+        void removeFromCart(ShoppingCart& cart, const string& itemName) {
+            cart.removeItem(itemName);
+            dbhelper.saveCart(cart);
+        }
+
+        ShoppingCart loadCart() {
+            return dbhelper.loadCart();
+        }
+
+};
+
+char userUI() {
+    cout<<"\n=== Shopping Cart ==="<<endl;
+    cout<<"1. View Cart"<<endl;
+    cout<<"2. Add Item"<<endl;
+    cout<<"3. Remove Item"<<endl;
+    cout<<"4. Exit"<<endl;
+    cout<<"Choose an option: ";
+
+    char choice;
+    cin>>choice;
+    return choice;
+
+}
+
+int main() {
+    ShoppingCartDB cartService;
+    ShoppingCart cart = cartService.loadCart();
+    char choice;
+    string itemName;
+    double itemPrice;
+    do{
+        choice = userUI();
+        switch (choice)
+        {
+        case '1':
+            if (cart.isEmpty()) {
+                cout << "Your cart is empty." << endl;
+            } else {
+                cart.displayCart();
+            }
+            break;
+        case '2':
+            cout<<"Enter item name: ";
+            cin>>itemName;
+            cout<<"Enter item price: ";
+            cin>>itemPrice;
+            cartService.addToCart(cart,Item(itemName,itemPrice));  
+            cout<<"Item added to cart."<<endl;
+            break;
+        case '3':
+            if (cart.isEmpty()) {
+                cout << "Cart is empty. Nothing to remove." << endl;
+                break;
+            }
+            cout<<"Enter Item name to be removed :";
+            cin>>itemName;
+            cartService.removeFromCart(cart,itemName);
+            cout<<"Item removed from cart"<<endl;
+            break;
+        case '4':
+            cout<<"Exiting..."<<endl;
+            break;
+        default:
+            cout<<"Invalid Choice !!"<<endl;
+            break;
+        }
+    }while (choice != '4');
+    return 0;
+}
 
 
 
