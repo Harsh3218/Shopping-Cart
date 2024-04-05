@@ -41,9 +41,3 @@ For adding more items in the menu , edit the items.db Database.
 ### Compatibility 🖥️
 - The program is written in C++ and should run on any platform with a compatible compiler.
 - Ensure SQLite3 is available and compatible with the platform.
-
-### Contributions 🤝
-Contributions are welcome! Feel free to fork the repository, make improvements, and create a pull request.
-
-### Support 💬
-For any questions or support, please open an issue in the GitHub repository.
