@@ -3,6 +3,7 @@
 <h1 style="font-size: 36px;">🛒 <strong>Shopping Cart Readme</strong></h1>
 
 </center>
+
 ### Description ℹ️
 This C++ program implements a simple shopping cart system with database functionality. Users can add items to their cart, remove items, view their cart, and proceed to checkout. It utilizes SQLite for database operations, storing both menu items and user carts.
 
