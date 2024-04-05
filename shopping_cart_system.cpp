@@ -1,7 +1,7 @@
-#include<iostream>
-#include<vector>
-#include<string>
-#include<sqlite3.h>
+#include <iostream>
+#include <vector>
+#include <string>
+#include <sqlite3.h>
 
 using namespace std;
 
@@ -9,31 +9,54 @@ class Item {
 private:
     string name;
     double price;
+    int quantity;
 public:
-    Item(const string& itemName, double itemPrice) : name(itemName), price(itemPrice) {}
+    Item(const string& itemName, double itemPrice, int itemQuantity) : name(itemName), price(itemPrice), quantity(itemQuantity) {}
+
+   
     string getName() const {
         return name;
     }
+
     double getPrice() const {
         return price;
     }
+
+    int getQuantity() const {
+        return quantity;
+    }
+
+   
+    void setQuantity(int newQuantity) {
+        quantity = newQuantity;
+    }
 };
+
 class ShoppingCart {
 private:
     vector<Item> items;
     string custName;
 public:
     ShoppingCart(const string& customerName) : custName(customerName) {}
+
     void addItem(const Item& item) {
         items.push_back(item);
     }
 
     void removeItem(const string& itemName) {
-        for (auto it = items.begin(); it != items.end(); ++it) {
+        bool itemRemoved = false;
+        for (auto it = items.begin(); it != items.end();) {
             if (it->getName() == itemName) {
-                items.erase(it);
-                break;
+                it = items.erase(it);
+                itemRemoved = true;
+            } else {
+                ++it;
             }
+        }
+        if (itemRemoved) {
+            cout << "Item '" << itemName << "' removed from cart." << endl;
+        } else {
+            cout << "Item '" << itemName << "' not found in cart." << endl;
         }
     }
 
@@ -44,11 +67,11 @@ public:
         else {
             cout << "Items in the Cart :\n";
             for (const auto& item : items) {
-                cout << " - " << item.getName() << ": $" << item.getPrice() << endl;
+                cout << " - " << item.getName() << " (Quantity: " << item.getQuantity() << "): $" << item.getPrice() * item.getQuantity() << endl; 
             }
-
         }
     }
+
     const vector<Item>& getItems() const {
         return items;
     }
@@ -59,6 +82,51 @@ public:
 
     string getCustName() const {
         return custName;
+    }
+};
+
+class ItemsDatabaseHelper {
+private:
+    sqlite3* db;
+    char* errMsg;
+public:
+    ItemsDatabaseHelper() {
+        if (sqlite3_open("items.db", &db) != SQLITE_OK) {
+            cerr << "Error Opening Items Database :" << sqlite3_errmsg(db) << endl;
+            sqlite3_close(db);
+        }
+        else {
+            if (sqlite3_open("items.db", &db) == SQLITE_OK) {
+                cout << endl;
+            }
+            else {
+                cerr << "Error Creating Items Database:" << sqlite3_errmsg(db) << endl;
+            }
+        }
+    }
+
+    ~ItemsDatabaseHelper() {
+        sqlite3_close(db);
+    }
+
+    vector<Item> getMenuItems() {
+        vector<Item> items;
+        string sql = "SELECT Name, Price, Quantity FROM Items;";
+        sqlite3_stmt* stmt;
+        if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
+            while (sqlite3_step(stmt) == SQLITE_ROW) {
+                string name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+                double price = sqlite3_column_double(stmt, 1);
+                int quantity = sqlite3_column_int(stmt, 2);
+                items.push_back(Item(name, price, quantity));
+            }
+            sqlite3_finalize(stmt);
+        }
+        else {
+            cerr << "SQL Error: " << sqlite3_errmsg(db) << endl;
+        }
+
+        return items;
     }
 };
 
@@ -74,10 +142,10 @@ public:
         }
         else {
             if (sqlite3_open("cart.db", &db) == SQLITE_OK) {
-                cout << "DataBase Created Successfully" << endl;
+                cout << endl;
             }
             else {
-                cerr << "Error Creating Database:" << sqlite3_errmsg(db) << endl;
+                cerr << "Error Creating Cart Database:" << sqlite3_errmsg(db) << endl;
             }
         }
     }
@@ -90,49 +158,44 @@ public:
         return 0;
     }
 
-void saveCart(const ShoppingCart& cart) {
-    string sql = "CREATE TABLE IF NOT EXISTS Cart (CustName TEXT, Name TEXT, Price REAL);";
-    if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, &errMsg) != SQLITE_OK) {
-        cerr << "SQL Error: " << errMsg << endl;
-        sqlite3_free(errMsg);
-    }
+    void saveCart(const ShoppingCart& cart) {
+        
+        string createTableSQL = "CREATE TABLE IF NOT EXISTS Cart (CustName TEXT, Name TEXT, Price REAL, Quantity INTEGER);";
+        if (sqlite3_exec(db, createTableSQL.c_str(), nullptr, nullptr, &errMsg) != SQLITE_OK) {
+            cerr << "SQL Error: " << errMsg << endl;
+            sqlite3_free(errMsg);
+            return;
+        }
 
-    for (const auto& item : cart.getItems()) {
-        // Check if the item already exists in the cart
-        sql = "SELECT COUNT(*) FROM Cart WHERE CustName = '" + cart.getCustName() + "' AND Name = '" + item.getName() + "';";
-        sqlite3_stmt* stmt;
-        int result = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
-        if (result == SQLITE_OK) {
-            if (sqlite3_step(stmt) == SQLITE_ROW) {
-                int count = sqlite3_column_int(stmt, 0);
-                if (count == 0) {
-                    // Item does not exist, insert it into the cart
-                    sql = "INSERT INTO Cart(CustName, Name, Price) VALUES ('" + cart.getCustName() + "', '" + item.getName() + "', " + to_string(item.getPrice()) + ");";
-                    if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, &errMsg) != SQLITE_OK) {
-                        cerr << "SQL Error: " << errMsg << endl;
-                        sqlite3_free(errMsg);
-                    }
-                }
+        
+        string removeSQL = "DELETE FROM Cart WHERE CustName = '" + cart.getCustName() + "';";
+        if (sqlite3_exec(db, removeSQL.c_str(), nullptr, nullptr, &errMsg) != SQLITE_OK) {
+            cerr << "SQL Error: " << errMsg << endl;
+            sqlite3_free(errMsg);
+            return;
+        }
+
+        
+        for (const auto& item : cart.getItems()) {
+            string insertSQL = "INSERT INTO Cart(CustName, Name, Price, Quantity) VALUES ('" + cart.getCustName() + "', '" + item.getName() + "', " + to_string(item.getPrice()) + ", " + to_string(item.getQuantity()) + ");";
+            if (sqlite3_exec(db, insertSQL.c_str(), nullptr, nullptr, &errMsg) != SQLITE_OK) {
+                cerr << "SQL Error: " << errMsg << endl;
+                sqlite3_free(errMsg);
+                return;
             }
-            sqlite3_finalize(stmt);
-        } else {
-            cerr << "SQL Error: " << sqlite3_errmsg(db) << endl;
         }
     }
-}
-
-
 
     ShoppingCart loadCart(const string& customerName) {
         ShoppingCart cart(customerName);
-        string sql = "SELECT Name, Price FROM Cart WHERE CustName = '" + customerName + "';";
+        string sql = "SELECT Name, Price, Quantity FROM Cart WHERE CustName = '" + customerName + "';";
         sqlite3_stmt* stmt;
         if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
-            while (sqlite3_step(stmt) == SQLITE_ROW)
-            {
+            while (sqlite3_step(stmt) == SQLITE_ROW) {
                 string name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
                 double price = sqlite3_column_double(stmt, 1);
-                cart.addItem(Item(name, price));
+                int quantity = sqlite3_column_int(stmt, 2);
+                cart.addItem(Item(name, price, quantity));
             }
             sqlite3_finalize(stmt);
         }
@@ -143,12 +206,28 @@ void saveCart(const ShoppingCart& cart) {
         return cart;
     }
 
+    void clearUserCart(const string& customerName) {
+        string sql = "DELETE FROM Cart WHERE CustName = '" + customerName + "';";
+        if (sqlite3_exec(db, sql.c_str(), nullptr, nullptr, &errMsg) != SQLITE_OK) {
+            cerr << "SQL Error: " << errMsg << endl;
+            sqlite3_free(errMsg);
+        }
+        else {
+            cout<< endl;
+        }
+    }
 };
 
 class ShoppingCartDB {
 private:
     DatabaseHelper dbhelper;
 public:
+    
+    void addToCart(ShoppingCart&& cart, const Item& item) {
+        cart.addItem(item);
+        dbhelper.saveCart(cart);
+    }
+
     void addToCart(ShoppingCart& cart, const Item& item) {
         cart.addItem(item);
         dbhelper.saveCart(cart);
@@ -163,6 +242,9 @@ public:
         return dbhelper.loadCart(customerName);
     }
 
+    void clearUserCart(const string& customerName) {
+        dbhelper.clearUserCart(customerName);
+    }
 };
 
 char userUI() {
@@ -177,67 +259,90 @@ char userUI() {
     char choice;
     cin >> choice;
     return choice;
-
 }
 
-void checkOut(const ShoppingCart& cart, const string customerName) {
-
+void checkOut(ShoppingCart& cart, const string& customerName) {
     cout << "\n=== Checkout ===" << endl;
     cout << "Customer Name: " << customerName << endl;
     cout << "Items in Cart: " << endl;
-    for (const auto& item : cart.getItems()) {
-        cout << "- " << item.getName() << ": $" << item.getPrice() << endl;
-    }
+    cart.displayCart();
     float total = 0.0;
     for (const auto& item : cart.getItems()) {
-        total += item.getPrice();
+        total += item.getPrice() * item.getQuantity(); 
     }
     cout << "Total Cost: $" << total << endl;
-
+    
+    ShoppingCartDB cartService;
+    cartService.clearUserCart(customerName);
 }
 
 int main() {
+    ItemsDatabaseHelper itemsDbHelper;
     ShoppingCartDB cartService;
-    ShoppingCart cart("");
     char choice;
-    string itemName;
-    double itemPrice;
     string customerName;
     cout << "Enter your Name: ";
-    cin.ignore();
-    getline(cin, customerName);
+    cin>>customerName;
     do {
         choice = userUI();
         switch (choice)
         {
-        case '1':
-            cart = cartService.loadCart(customerName);
+        case '1': {
+            ShoppingCart cart = cartService.loadCart(customerName);
             if (cart.isEmpty()) {
-                cout << "Your cart is empty." << endl;
+                cout << "\nYour cart is empty." << endl;
             }
             else {
+                cout << "\nItems in Your Cart:\n";
                 cart.displayCart();
             }
             break;
-        case '2':
-            cout << "Enter item name: ";
-            cin >> itemName;
-            cout << "Enter item price: ";
-            cin >> itemPrice;
-            cartService.addToCart(cart, Item(itemName, itemPrice));
-            cout << "Item added to cart." << endl;
-            break;
-        case '3':
-            if (cart.isEmpty()) {
-                cout << "Cart is empty. Nothing to remove." << endl;
-                break;
+        }
+        case '2': {
+            vector<Item> menuItems = itemsDbHelper.getMenuItems();
+            if (menuItems.empty()) {
+                cout << "\nNo items available in the menu." << endl;
             }
-            cout << "Enter Item name to be removed: ";
-            cin >> itemName;
-            cartService.removeFromCart(cart, itemName);
-            cout << "Item removed from cart" << endl;
+            else {
+                cout << "\nChoose an item from the menu:\n";
+                for (size_t i = 0; i < menuItems.size(); ++i) {
+                    cout << i + 1 << ". " << menuItems[i].getName() << ": $" << menuItems[i].getPrice() << endl;
+                }
+                int choice;
+                cout << "\nEnter your choice: ";
+                cin >> choice;
+                if (choice >= 1 && choice <= menuItems.size()) {
+                    // Get quantity
+                    int quantity;
+                    cout << "Enter quantity: ";
+                    cin >> quantity;
+                    Item selected_item = menuItems[choice - 1];
+                    selected_item.setQuantity(quantity);
+                    cartService.addToCart(cartService.loadCart(customerName), selected_item);
+                    cout << "Item added to cart." << endl;
+                }
+                else {
+                    cout << "Invalid choice." << endl;
+                }
+            }
             break;
-        case '4':
+        }
+        case '3': {
+            ShoppingCart cart = cartService.loadCart(customerName);
+            if (cart.isEmpty()) {
+                cout << "\nCart is empty. Nothing to remove." << endl;
+            }
+            else {
+                cart.displayCart();
+                string itemName;
+                cout << "\nEnter Item name to be removed: ";
+                cin >> itemName;
+                cartService.removeFromCart(cart, itemName);
+            }
+            break;
+        }
+        case '4': {
+            ShoppingCart cart = cartService.loadCart(customerName);
             if (cart.isEmpty()) {
                 cout << "Cart is empty!! Cannot Proceed to checkout." << endl;
             }
@@ -245,6 +350,7 @@ int main() {
                 checkOut(cart, customerName);
             }
             break;
+        }
         case '5':
             cout << "Exiting..." << endl;
             break;
