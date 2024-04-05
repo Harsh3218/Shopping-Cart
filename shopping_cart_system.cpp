@@ -312,7 +312,7 @@ int main() {
                 cout << "\nEnter your choice: ";
                 cin >> choice;
                 if (choice >= 1 && choice <= menuItems.size()) {
-                    // Get quantity
+                   
                     int quantity;
                     cout << "Enter quantity: ";
                     cin >> quantity;
