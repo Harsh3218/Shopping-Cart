@@ -18,7 +18,6 @@ public:
         return price;
     }
 };
-
 class ShoppingCart {
 private:
     vector<Item> items;
