@@ -1,5 +1,6 @@
-🛒 **Shopping Cart Readme**
-
+<center>
+#🛒 **Shopping Cart Readme**
+</center>
 ### Description ℹ️
 This C++ program implements a simple shopping cart system with database functionality. Users can add items to their cart, remove items, view their cart, and proceed to checkout. It utilizes SQLite for database operations, storing both menu items and user carts.
 
@@ -24,6 +25,8 @@ This C++ program implements a simple shopping cart system with database function
    - Press `4` to proceed to checkout.
    - Press `5` to exit.
 4. **Checkout**: During checkout, the program displays the items in the cart and the total cost. The cart is then cleared.
+
+For adding more items in the menu , edit the items.db Database.
 
 ### Dependencies 📦
 - SQLite3: Ensure SQLite3 library is installed and linked during compilation.
